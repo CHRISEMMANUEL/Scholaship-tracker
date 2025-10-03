@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 from datetime import datetime, timezone
+from notify import send_telegram_message
 
 BASE_URL = "https://www.scholarshipsads.com/"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
@@ -17,19 +18,15 @@ def scrape_scholarships():
     scholarships = []
     seen = set()
 
-    # Grab all scholarship links (filtering only detail pages)
     links = soup.select("a[href^='https://www.scholarshipsads.com/']")
     for a in links:
         title = a.get_text(strip=True)
         href = a.get("href")
 
-        if not title or not href:
-            continue
-        if href in seen:
+        if not title or not href or href in seen:
             continue
         seen.add(href)
 
-        # Visit scholarship detail page
         deadline, eligibility, description = scrape_details(href)
 
         scholarships.append({
@@ -46,7 +43,6 @@ def scrape_scholarships():
 
 
 def scrape_details(url):
-    """Extract deadline, eligibility, description from a scholarship detail page"""
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         if resp.status_code != 200:
@@ -54,7 +50,6 @@ def scrape_details(url):
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # Adjust depending on actual site HTML
         deadline_tag = soup.find("li", string=lambda t: t and "Deadline" in t)
         deadline = deadline_tag.get_text(strip=True) if deadline_tag else None
 
@@ -74,16 +69,8 @@ def save_to_db(scholarships):
     conn = sqlite3.connect("scholarships.db")
     cursor = conn.cursor()
 
-    # Convert dicts → tuples
     data_to_insert = [
-        (
-            s["title"],
-            s["link"],
-            s["deadline"],
-            s["eligibility"],
-            s["description"],
-            s["date_scraped"],
-        )
+        (s["title"], s["link"], s["deadline"], s["eligibility"], s["description"], s["date_scraped"])
         for s in scholarships
     ]
 
@@ -98,6 +85,13 @@ def save_to_db(scholarships):
 
     conn.commit()
     conn.close()
+
+    # ✅ Send Telegram notification for latest scholarship
+    if scholarships:
+        latest = scholarships[0]
+        msg = f"🎓 New Scholarship Added!\n\n{latest['title']}\nDeadline: {latest['deadline']}\n🔗 {latest['link']}"
+        send_telegram_message(msg)
+
     print(f"💾 Saved {len(scholarships)} scholarships to database.")
 
 
