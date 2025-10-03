@@ -3,25 +3,29 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 import streamlit_authenticator as stauth
-import yaml
-from yaml.loader import SafeLoader
 from scraper import scrape_scholarships, save_to_db
 
+# ======================
+#  Streamlit Page Setup
+# ======================
+st.set_page_config(page_title="Scholarship Tracker", layout="wide")
 
 # ======================
 #  Authentication Setup
 # ======================
-# Example user credentials (replace with real ones later)
+# Generate password hashes
+hashed_passwords = stauth.Hasher(["mypassword", "admin123"]).generate()
+
 config = {
     "credentials": {
         "usernames": {
             "nuel": {
                 "name": "Nuel Chris",
-                "password": stauth.Hasher(["mypassword"]).generate()[0],  # hashed
+                "password": hashed_passwords[0],  
             },
             "admin": {
                 "name": "Admin User",
-                "password": stauth.Hasher(["admin123"]).generate()[0],
+                "password": hashed_passwords[1],  
             },
         }
     },
@@ -33,7 +37,6 @@ authenticator = stauth.Authenticate(
     config["credentials"], config["cookie"]["name"], config["cookie"]["key"], config["cookie"]["expiry_days"]
 )
 
-
 # ======================
 #  DB Helper
 # ======================
@@ -44,7 +47,6 @@ def get_scholarships(query, params=()):
     rows = cursor.fetchall()
     conn.close()
     return rows
-
 
 # Deadline highlighter
 def highlight_deadline(row):
@@ -60,22 +62,26 @@ def highlight_deadline(row):
     except:
         return [""] * len(row)
 
-
 # ======================
 #  Login Page
 # ======================
-name, authentication_status, username = authenticator.login("Login", "main")
+login_return = authenticator.login("Login", "main")
+
+# Handle 2 vs 3 return values
+if len(login_return) == 3:
+    name, authentication_status, username = login_return
+else:
+    name, authentication_status = login_return
+    username = None
 
 if authentication_status:
     # ======================
     #  Main App
     # ======================
-    st.set_page_config(page_title="Scholarship Tracker", layout="wide")
+    authenticator.logout("Logout", "sidebar")
 
     st.title("🎓 Scholarship Tracker")
     st.write(f"Welcome, **{name}** 👋")
-
-    authenticator.logout("Logout", "sidebar")
 
     menu = st.sidebar.radio(
         "📌 Menu",
@@ -87,7 +93,7 @@ if authentication_status:
         data = scrape_scholarships()
         if data:
             save_to_db(data)
-            st.success(f"✅ {len(data)} scholarships scraped and saved!")
+            st.success(f"{len(data)} scholarships scraped and saved!")
         else:
             st.warning("No new scholarships found.")
 
@@ -99,7 +105,7 @@ if authentication_status:
         if rows:
             df = pd.DataFrame(rows, columns=["Title", "Link", "Deadline", "Eligibility", "Description", "Scraped"])
             df["Link"] = df["Link"].apply(lambda x: f"[🔗 Open]({x})")
-            st.dataframe(df.style.apply(highlight_deadline, axis=1), width="stretch")
+            st.dataframe(df.style.apply(highlight_deadline, axis=1), use_container_width=True)
         else:
             st.info("No scholarships found in the database.")
 
@@ -117,7 +123,7 @@ if authentication_status:
             if rows:
                 df = pd.DataFrame(rows, columns=["Title", "Link", "Deadline", "Eligibility", "Description", "Scraped"])
                 df["Link"] = df["Link"].apply(lambda x: f"[🔗 Open]({x})")
-                st.dataframe(df.style.apply(highlight_deadline, axis=1), width="stretch")
+                st.dataframe(df.style.apply(highlight_deadline, axis=1), use_container_width=True)
             else:
                 st.warning(f"No scholarships found for keyword: {keyword}")
 
@@ -137,7 +143,7 @@ if authentication_status:
             except:
                 pass
 
-            st.dataframe(df.style.apply(highlight_deadline, axis=1), width="stretch")
+            st.dataframe(df.style.apply(highlight_deadline, axis=1), use_container_width=True)
         else:
             st.info("No deadlines found.")
 
