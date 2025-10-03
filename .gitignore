@@ -1,0 +1,25 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment
+venv/
+ENV/
+env/
+.venv/
+
+# Ignore SQLite database
+scholarships.db
+
+# Ignore Streamlit logs
+.streamlit/
+
+# Ignore export files
+*.csv
+*.json
+
+# Ignore system files
+.DS_Store
+Thumbs.db
