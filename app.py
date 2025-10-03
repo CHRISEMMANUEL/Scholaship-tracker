@@ -1,3 +1,7 @@
+# =========================
+#  Scholarship Tracker App
+# =========================
+
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -5,15 +9,15 @@ from datetime import datetime
 import streamlit_authenticator as stauth
 from scraper import scrape_scholarships, save_to_db
 
-# ======================
-#  Streamlit Page Setup
-# ======================
+# -------------------------
+# Streamlit Config (must be first Streamlit call)
+# -------------------------
 st.set_page_config(page_title="Scholarship Tracker", layout="wide")
 
-# ======================
-#  Authentication Setup
-# ======================
-# Generate password hashes
+# -------------------------
+# Authentication Setup
+# -------------------------
+# Hash passwords
 hashed_passwords = stauth.Hasher(["mypassword", "admin123"]).generate()
 
 config = {
@@ -21,11 +25,11 @@ config = {
         "usernames": {
             "nuel": {
                 "name": "Nuel Chris",
-                "password": hashed_passwords[0],  
+                "password": hashed_passwords[0],
             },
             "admin": {
                 "name": "Admin User",
-                "password": hashed_passwords[1],  
+                "password": hashed_passwords[1],
             },
         }
     },
@@ -33,13 +37,18 @@ config = {
     "preauthorized": {"emails": []},
 }
 
+# Create authenticator
 authenticator = stauth.Authenticate(
-    config["credentials"], config["cookie"]["name"], config["cookie"]["key"], config["cookie"]["expiry_days"]
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"],
+    config["preauthorized"]
 )
 
-# ======================
-#  DB Helper
-# ======================
+# -------------------------
+# Database Helper
+# -------------------------
 def get_scholarships(query, params=()):
     conn = sqlite3.connect("scholarships.db")
     cursor = conn.cursor()
@@ -48,7 +57,7 @@ def get_scholarships(query, params=()):
     conn.close()
     return rows
 
-# Deadline highlighter
+# Highlight deadlines
 def highlight_deadline(row):
     try:
         deadline = datetime.strptime(str(row["Deadline"]), "%Y-%m-%d")
@@ -62,32 +71,26 @@ def highlight_deadline(row):
     except:
         return [""] * len(row)
 
-# ======================
-#  Login Page
-# ======================
-login_return = authenticator.login("Login", "main")
-
-# Handle 2 vs 3 return values
-if len(login_return) == 3:
-    name, authentication_status, username = login_return
-else:
-    name, authentication_status = login_return
-    username = None
+# -------------------------
+# Login Page
+# -------------------------
+name, authentication_status, username = authenticator.login("Login", "main")
 
 if authentication_status:
-    # ======================
-    #  Main App
-    # ======================
-    authenticator.logout("Logout", "sidebar")
-
+    # -------------------------
+    # Main App
+    # -------------------------
     st.title("🎓 Scholarship Tracker")
     st.write(f"Welcome, **{name}** 👋")
+
+    authenticator.logout("Logout", "sidebar")
 
     menu = st.sidebar.radio(
         "📌 Menu",
         ["Scrape New Scholarships", "View Scholarships", "Search Scholarships", "Upcoming Deadlines"],
     )
 
+    # Scrape
     if menu == "Scrape New Scholarships":
         st.subheader("🔄 Scraping Scholarships...")
         data = scrape_scholarships()
@@ -97,6 +100,7 @@ if authentication_status:
         else:
             st.warning("No new scholarships found.")
 
+    # View
     elif menu == "View Scholarships":
         st.subheader("📋 Latest Scholarships")
         rows = get_scholarships(
@@ -109,6 +113,7 @@ if authentication_status:
         else:
             st.info("No scholarships found in the database.")
 
+    # Search
     elif menu == "Search Scholarships":
         keyword = st.text_input("🔍 Enter keyword (e.g., Undergraduate, Africa, MBA):")
         if keyword:
@@ -127,6 +132,7 @@ if authentication_status:
             else:
                 st.warning(f"No scholarships found for keyword: {keyword}")
 
+    # Deadlines
     elif menu == "Upcoming Deadlines":
         st.subheader("⏳ Scholarships Closing Soon")
         rows = get_scholarships(
