@@ -7,6 +7,7 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 import streamlit_authenticator as stauth
+import bcrypt
 from scraper import scrape_scholarships, save_to_db
 
 # -------------------------
@@ -14,36 +15,45 @@ from scraper import scrape_scholarships, save_to_db
 # -------------------------
 st.set_page_config(page_title="Scholarship Tracker", layout="wide")
 
-# -------------------------
-# Authentication Setup
-# -------------------------
-# Hash passwords
-hashed_passwords = stauth.Hasher(["mypassword", "admin123"]).generate()
+# ======================
+#  Authentication Setup
+# ======================
+# Hash passwords with bcrypt
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+hashed_passwords = {
+    "nuel": hash_password("mypassword"),
+    "admin": hash_password("admin123")
+}
 
 config = {
     "credentials": {
         "usernames": {
             "nuel": {
                 "name": "Nuel Chris",
-                "password": hashed_passwords[0],
+                "password": hashed_passwords["nuel"],
             },
             "admin": {
                 "name": "Admin User",
-                "password": hashed_passwords[1],
+                "password": hashed_passwords["admin"],
             },
         }
     },
-    "cookie": {"name": "scholarship_tracker", "key": "random_secret_key", "expiry_days": 30},
+    "cookie": {
+        "name": "scholarship_tracker",
+        "key": "random_secret_key",
+        "expiry_days": 30
+    },
     "preauthorized": {"emails": []},
 }
 
-# Create authenticator
+# Build authenticator
 authenticator = stauth.Authenticate(
     config["credentials"],
     config["cookie"]["name"],
     config["cookie"]["key"],
-    config["cookie"]["expiry_days"],
-    config["preauthorized"]
+    config["cookie"]["expiry_days"]
 )
 
 # -------------------------
@@ -71,15 +81,13 @@ def highlight_deadline(row):
     except:
         return [""] * len(row)
 
-# -------------------------
-# Login Page
-# -------------------------
+# ======================
+#  Login Page
+# ======================
 name, authentication_status, username = authenticator.login("Login", "main")
 
 if authentication_status:
-    # -------------------------
-    # Main App
-    # -------------------------
+    st.set_page_config(page_title="Scholarship Tracker", layout="wide")
     st.title("🎓 Scholarship Tracker")
     st.write(f"Welcome, **{name}** 👋")
 
