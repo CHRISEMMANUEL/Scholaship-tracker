@@ -1,8 +1,9 @@
+import streamlit as st
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import sqlite3
 
-TOKEN = "7769817844:AAFxHjub6Lasc8aGLmlTxDQlpgs1pWMBTyM"
+TOKEN = bot_token = st.secrets["bot"]["BOT_TOKEN"]
 USER_CHAT_ID = None  # Will store your chat id after /start
 
 # Start command
